@@ -1,0 +1,206 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ Thống Bán Hàng Tạp Hóa - Giỏ Hàng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container-fluid px-4 mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+    <div>
+        <h2 class="text-primary fw-bold mb-0">🏪 MÀN HÌNH BÁN HÀNG POS</h2>
+        <small class="text-muted">Hệ thống quản lý bán hàng tạp hóa thông minh</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/admin/store/product/" class="btn btn-outline-primary d-flex align-items-center gap-1">
+            📦 Quản lý kho
+        </a>
+        
+        <a href="{% url 'tax_report' %}" class="btn btn-outline-success d-flex align-items-center gap-1">
+            📊 Báo cáo thuế
+        </a>
+
+        <form action="/admin/logout/" method="POST" style="display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-danger d-flex align-items-center gap-1">
+        🚪 Đăng xuất 
+    </button>
+</form>
+    </div>
+</div>
+    
+    <!-- KHỐI QUÉT MÃ VẠCH TỰ ĐỘNG -->
+    <div class="row mb-4 justify-content-center">
+        <div class="col-md-6">
+            <div class="card p-3 shadow-sm border-primary">
+                <form id="barcodeForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="scan_barcode">
+                    <div class="input-group">
+                        <span class="input-group-text bg-primary text-white">🔍 QUÉT MÃ VẠCH</span>
+                        <input type="text" name="barcode" id="barcodeInput" class="form-control form-control-lg" placeholder="Bắn máy quét hoặc nhập mã vạch vào đây..." autocomplete="off">
+                    </div>
+                </form>
+                <div id="barcodeFeedback" class="small mt-2 text-center fw-bold" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cột hiển thị sản phẩm -->
+        <div class="col-md-7">
+            <div class="card p-3 shadow-sm h-100">
+                <h4 class="card-title text-secondary border-bottom pb-2">📦 Sản phẩm trong kho</h4>
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Tên sản phẩm</th>
+                                <th>Giá bán</th>
+                                <th>Kho</th>
+                                <th>SL</th>
+								<th>Mã sản phẩm</th>
+                                <th>Thêm vào giỏ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                           <tr>
+    <td><strong>{{ product.name }}</strong></td>
+    <td><span class="badge bg-info">{{ product.category.name }}</span></td>
+    <td class="text-danger fw-bold">{{ product.price|intcomma }}đ</td>
+    <td>
+        {% if product.stock > 0 %}
+            <span class="badge bg-success">Còn {{ product.stock }}</span>
+        {% else %}
+            <span class="badge bg-danger">Hết hàng</span>
+        {% endif %}
+    </td>
+    <td>{{ product.barcode|default:"-" }}</td>
+    
+    <td>
+        <form class="ajax-add-form d-flex gap-1">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_to_cart">
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="form-control form-control-sm" style="width: 65px;">
+            <button type="submit" class="btn btn-primary btn-sm" {% if product.stock <= 0 %}disabled{% endif %}>+</button>
+        </form>
+    </td>
+</tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột hiển thị giỏ hàng (Được kiểm soát bởi AJAX) -->
+        <div class="col-md-5">
+            <div class="card p-3 shadow-sm border-warning mb-3" id="cartContainer">
+                {% include 'store/partials/cart_section.html' %}
+            </div>
+
+            <div class="card p-3 shadow-sm border-success text-center" id="qrCodeCard" style="display: {% if cart_total > 0 %}block{% else %}none{% endif %};">
+                <h5 class="text-success fw-bold mb-2">⚡️ QUÉT QR CHUYỂN KHOẢN NHANH</h5>
+                <div class="p-2 bg-white d-inline-block rounded border">
+                    <img id="posQrImage" src="https://img.vietqr.io/image/{{ BANK_ID }}-{{ BANK_ACCOUNT }}-qr_only.png?amount={{ cart_total }}&addInfo=THANH%20TOAN%20POS&accountName={{ BANK_ACCOUNT_NAME }}" alt="VietQR" style="max-width: 200px; height: auto;">
+                </div>
+                <p class="text-muted small mt-2 mb-0">Hệ thống tự động đồng bộ số tiền, không cần nhập tay.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const barcodeInput = document.getElementById("barcodeInput");
+        const cartContainer = document.getElementById("cartContainer");
+        const feedback = document.getElementById("barcodeFeedback");
+
+        barcodeInput.focus();
+
+        // Hàm tổng quát xử lý đẩy và nhận dữ liệu AJAX
+     // Hàm tổng quát xử lý đẩy và nhận dữ liệu AJAX
+        function sendAjaxRequest(formData) {
+            fetch(window.location.href, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 1. Cập nhật lại HTML giỏ hàng
+                cartContainer.innerHTML = data.cart_html;
+                
+                // 2. CẬP NHẬT QR CODE ĐỘNG
+                const qrCard = document.getElementById("qrCodeCard");
+                const qrImage = document.getElementById("posQrImage");
+                
+                if (data.qr_url) {
+                    qrImage.src = data.qr_url; // Đổi link ảnh QR theo số tiền mới
+                    qrCard.style.display = "block"; // Hiển thị khung QR
+                } else {
+                    qrCard.style.display = "none"; // Ẩn khung QR nếu giỏ hàng trống
+                }
+                
+                // 3. Hiển thị thông báo phản hồi quét mã
+                if(data.message) {
+                    feedback.style.display = "block";
+                    feedback.innerText = data.message;
+                    feedback.className = data.success ? "small mt-2 text-center fw-bold text-success" : "small mt-2 text-center fw-bold text-danger";
+                    setTimeout(() => { feedback.style.display = "none"; }, 2000);
+                }
+                
+                barcodeInput.value = "";
+                barcodeInput.focus();
+            })
+            .catch(error => console.error("Lỗi kết nối hệ thống:", error));
+        }
+
+        // 1. Đón sự kiện bắn mã vạch
+        document.getElementById("barcodeForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+            if (barcodeInput.value.trim() !== "") {
+                sendAjaxRequest(new FormData(this));
+            }
+        });
+
+        // 2. Đón sự kiện bấm nút "Thêm giỏ" thủ công từ bảng sản phẩm
+        document.querySelectorAll(".ajax-add-form").forEach(form => {
+            form.addEventListener("submit", function(e) {
+                e.preventDefault();
+                sendAjaxRequest(new FormData(this));
+            });
+        });
+
+        // 3. Đón sự kiện bấm nút Xóa sản phẩm nằm trong giỏ hàng (Sử dụng Event Delegation vì giỏ hàng bị render lại liên tục)
+        cartContainer.addEventListener("click", function(e) {
+            if (e.target && e.target.classList.contains("btn-remove-item")) {
+                const productId = e.target.getAttribute("data-product-id");
+                const formData = new FormData();
+                formData.append("csrfmiddlewaretoken", document.querySelector('[name=csrfmiddlewaretoken]').value);
+                formData.append("action", "remove_from_cart");
+                formData.append("product_id", productId);
+                
+                sendAjaxRequest(formData);
+            }
+        });
+
+        // Giữ tiêu điểm chuột luôn nằm ở ô quét mã vạch sau mỗi 3 giây
+        document.addEventListener("click", function() {
+            setTimeout(() => {
+                const activeEl = document.activeElement;
+                if (activeEl.tagName !== 'INPUT' && !activeEl.classList.contains('customer-input')) {
+                    barcodeInput.focus();
+                }
+            }, 3000);
+        });
+    });
+</script>
+</body>
+</html>

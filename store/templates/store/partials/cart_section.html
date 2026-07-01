@@ -1,0 +1,63 @@
+{% load humanize %}
+<h4 class="card-title text-warning border-bottom pb-2">🛒 Giỏ hàng thanh toán</h4>
+
+{% if cart_items %}
+    <div class="table-responsive" style=\"max-height: 350px; overflow-y: auto;\">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Tên món</th>
+                    <th>SL</th>
+                    <th>Tổng</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td><span class="badge bg-secondary">{{ item.quantity }}</span></td>
+                    <td class="fw-bold">{{ item.total_price|intcomma }}đ</td>
+                    <td>
+                        <button type="button" class="btn btn-outline-danger btn-sm btn-remove-item" data-product-id="{{ item.product.id }}">Xóa</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-4 p-3 bg-white rounded border">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="fs-5">Tổng tiền phải trả:</span>
+            <span class="fs-4 fw-bold text-danger">{{ cart_total|intcomma }}đ</span>
+        </div>
+        
+        <form method="POST" style="margin-top: 15px;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="checkout">
+            
+            <div style="margin-bottom: 8px;">
+                <input type="text" name="customer_phone" class="customer-input" placeholder="Số điện thoại khách" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 8px;">
+                <input type="text" name="customer_name" class="customer-input" placeholder="Tên khách hàng" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 8px;">
+                <input type="text" name="customer_address" class="customer-input" placeholder="Địa chỉ" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <input type="number" name="customer_birth_year" class="customer-input" placeholder="Năm sinh (Ví dụ: 1990)" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+
+            <button type="submit" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 16px;">
+                🔔 HOÀN TẤT THANH TOÁN & IN HÓA ĐƠN
+            </button>
+        </form>
+    </div>
+{% else %}
+    <div class="text-center text-muted py-4">
+        <p class="fs-5 mb-0">🛒 Giỏ hàng đang trống</p>
+        <small>Vui lòng quét mã hoặc chọn sản phẩm bên dưới</small>
+    </div>
+{% endif %}

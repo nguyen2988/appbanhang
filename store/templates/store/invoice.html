@@ -1,0 +1,107 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hóa đơn bán lẻ #{{ order.id }}</title>
+    <style>
+        /* CSS tối ưu riêng cho khổ giấy in hóa đơn bán lẻ (ví dụ khổ K80) */
+        body {
+            font-family: 'Courier New', Courier, monospace, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 10px;
+            color: #000;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .invoice-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; border-bottom: 1px solid #000; }
+        td { padding: 5px 0; }
+        .total-section { font-size: 16px; font-weight: bold; margin-top: 15px; }
+        
+        /* Ẩn các nút điều hướng khi in ra giấy thực tế */
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="background: #f8f9fa; padding: 10px; margin-bottom: 20px; text-align: center; border: 1px solid #ddd;">
+        <button onclick="window.print();" style="padding: 8px 15px; background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold;">🖨️ Tiến Hành In</button>
+        <a href="/" style="padding: 8px 15px; background: #6c757d; color: white; text-decoration: none; margin-left: 10px; display: inline-block;">↩️ Quay lại bán hàng</a>
+    </div>
+
+    <div style="max-width: 350px; margin: 0 auto;">
+       <div class="text-center">
+            <div class="invoice-title">CỬA HÀNG TIỆN LỢI / TẠP HÓA</div>
+            <p style="margin: 2px 0;">Đ/C: Từ Sơn, Bắc Ninh</p>
+            <p style="margin: 2px 0;">SĐT: 0123.456.789</p>
+            <h3 style="margin: 15px 0 5px 0;">HÓA ĐƠN BÁN LẺ</h3>
+            <small>Số: #{{ order.id }} | Ngày: {{ order.created_at|date:"d/m/Y H:i" }}</small>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="margin-bottom: 10px; font-size: 13px;">
+            {% if order.customer %}
+                <div><strong>Khách hàng:</strong> {{ order.customer.name }}</div>
+                <div><strong>Số ĐT:</strong> {{ order.customer.phone }}</div>
+                {% if order.customer.address %}
+                    <div><strong>Địa chỉ:</strong> {{ order.customer.address }}</div>
+                {% endif %}
+            {% else %}
+                <div><strong>Khách hàng:</strong> Khách lẻ (Vãng lai)</div>
+            {% endif %}
+        </div>
+
+        <div class="divider"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Tên hàng</th>
+                    <th style="width: 15%; text-align: center;">SL</th>
+                    <th style="width: 35%; text-align: right;">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td style="text-align: center;">{{ item.quantity }}</td>
+                    <td class="text-right">{{ item.price|intcomma }}đ</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <div class="total-section">
+            <div style="display: flex; justify-content: space-between;">
+                <span>TỔNG TIỀN:</span>
+                <span>{{ order.total_amount|intcomma }}đ</span>
+            </div>
+        </div>
+
+        <div class="divider" style="margin-top: 20px;"></div>
+        <div class="text-center" style="font-style: italic; margin-top: 10px;">
+            Cảm ơn quý khách! Xin hẹn gặp lại!<br>
+            Powered by Django Python
+        </div>
+    </div>
+
+    <script>
+    // Đảm bảo toàn bộ trang bao gồm CSS, font chữ đã tải xong hoàn toàn mới bật hộp thoại in
+    window.addEventListener('load', function() {
+        window.print();
+    });
+</script>
+
+</body>
+</html>
